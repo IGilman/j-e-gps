@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Josh &amp; Emilie on the John Muir Trail</title>
+  <meta name="description" content="Live-ish tracker following Josh & Emilie backpacking the John Muir Trail, mapped from their SPOT satellite check-ins." />
+
+  <!-- Leaflet (map library). Loaded from CDN — works great on Vercel. -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root{
+      --bg:#0f1720; --panel:#161f2b; --panel2:#1d2836; --ink:#eef4fb; --muted:#9fb0c3;
+      --accent:#ff7a3c; --accent2:#39c06f; --border:#2a3646;
+      --trail:#ff7a3c; --plan:#123fd6;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--ink)}
+    #app{display:grid;grid-template-columns:360px 1fr;height:100vh;overflow:hidden}
+    #map{height:100vh;width:100%;background:#0b1017}
+
+    /* ---------- Sidebar ---------- */
+    #side{background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+    .brand{position:relative;padding:18px 18px 14px;border-bottom:1px solid var(--border)}
+    .close-x{display:none;position:absolute;top:12px;right:12px;width:34px;height:34px;background:var(--panel2);
+      color:var(--ink);border:1px solid var(--border);border-radius:9px;font-size:15px;cursor:pointer}
+    .close-x:hover{background:#26313f}
+    .brand h1{margin:0;font-size:19px;line-height:1.25;letter-spacing:.2px}
+    .brand .sub{color:var(--muted);font-size:12.5px;margin-top:5px}
+    .brand .flag{font-size:22px}
+
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 18px}
+    .stat{background:var(--panel2);border:1px solid var(--border);border-radius:12px;padding:11px 12px}
+    .stat .n{font-size:22px;font-weight:700;line-height:1}
+    .stat .l{color:var(--muted);font-size:11px;margin-top:6px;text-transform:uppercase;letter-spacing:.6px}
+    .stat .n small{font-size:12px;font-weight:600;color:var(--muted)}
+
+    .latestbox{margin:2px 18px 8px;background:linear-gradient(135deg,#26313f,#1b2431);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:12px;padding:12px 13px}
+    .latestbox .k{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--accent)}
+    .latestbox .msg{font-size:13px;margin-top:6px;color:var(--ink);font-style:italic}
+    .latestbox .when{font-size:12px;color:var(--muted);margin-top:7px}
+    .elev{display:flex;align-items:center;gap:9px;margin-top:9px}
+    .elev .arrow{font-size:22px;line-height:1}
+    .elev .arrow.up{color:#ff7a3c}
+    .elev .arrow.down{color:#39c06f}
+    .elev .delta{font-size:25px;font-weight:800;color:var(--ink);letter-spacing:.3px}
+    .elev .elabel{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;line-height:1.35}
+    .ecur{font-size:12.5px;color:var(--muted);margin-top:6px}
+
+    .list-h{padding:8px 18px 6px;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.7px;display:flex;justify-content:space-between;align-items:center}
+    #list{overflow:auto;padding:4px 12px 16px;min-height:0}
+    .card{display:flex;gap:11px;padding:11px 10px;border-radius:11px;cursor:pointer;transition:background .15s}
+    .card:hover{background:var(--panel2)}
+    .card .dot{flex:0 0 26px;width:26px;height:26px;min-width:26px;aspect-ratio:1;border-radius:50%;background:var(--accent);color:#1a1005;font-weight:700;font-size:13px;display:grid;place-items:center;margin-top:2px}
+    .card .dot.latest{background:var(--accent2);color:#04240f}
+    .card .body{min-width:0}
+    .card .t{font-size:13px;font-weight:600}
+    .card .m{font-size:12px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+    .foot{padding:12px 18px;border-top:1px solid var(--border);color:var(--muted);font-size:11px;line-height:1.5}
+
+    /* ---------- Map controls ---------- */
+    .btn{position:absolute;z-index:500;background:var(--panel);color:var(--ink);border:1px solid var(--border);
+      border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 3px 12px rgba(0,0,0,.35)}
+    .btn:hover{background:var(--panel2)}
+    #toggleSide{display:none}
+
+    .side-actions{padding:10px 18px 4px}
+    .side-btn{width:100%;background:var(--accent);color:#1a1005;border:none;border-radius:10px;
+      padding:12px;font-size:13.5px;font-weight:700;cursor:pointer;transition:filter .15s}
+    .side-btn:hover{filter:brightness(1.08)}
+
+    .legend{position:absolute;left:14px;bottom:14px;z-index:500;background:rgba(22,31,43,.94);border:1px solid var(--border);
+      border-radius:11px;padding:11px 13px;font-size:12px;box-shadow:0 3px 12px rgba(0,0,0,.35)}
+    .legend .row{display:flex;align-items:center;gap:9px;margin:5px 0}
+    .legend .sw{width:22px;height:0;border-top-width:3px;border-top-style:solid;display:inline-block}
+    .legend .pin{width:13px;height:13px;border-radius:50%;display:inline-block;border:2px solid #fff}
+
+    /* Leaflet marker: numbered check-in pin */
+    .ci-pin{background:var(--accent);color:#1a1005;font-weight:700;border:2.5px solid #fff;border-radius:50% 50% 50% 0;
+      transform:rotate(-45deg);width:30px;height:30px;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+    .ci-pin span{transform:rotate(45deg);font-size:13px}
+    .ci-pin.latest{background:var(--accent2);color:#04240f;animation:pulse 1.8s infinite}
+    @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(57,192,111,.55)}50%{box-shadow:0 0 0 12px rgba(57,192,111,0)}}
+    .plan-pin{background:var(--plan);width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.5)}
+
+    .leaflet-popup-content{font-size:13px;line-height:1.5}
+    .leaflet-popup-content b{color:#0a2540}
+    .pop-msg{font-style:italic;color:#274156;margin-top:4px}
+
+    /* ---------- Mobile ---------- */
+    @media (max-width:820px){
+      #app{grid-template-columns:1fr;grid-template-rows:1fr}
+      #side{position:absolute;z-index:600;inset:0 auto 0 0;width:86%;max-width:360px;transform:translateX(-102%);
+        transition:transform .25s ease;box-shadow:6px 0 24px rgba(0,0,0,.5)}
+      #app.open #side{transform:none}
+      #toggleSide{display:block;top:14px;left:14px}
+      .close-x{display:block}
+      /* Hide +/- buttons on mobile — pinch & double-tap to zoom instead (like Google Maps) */
+      .leaflet-control-zoom{display:none}
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <aside id="side">
+    <div class="brand">
+      <button id="closeSide" class="close-x" aria-label="Close menu">✕</button>
+      <h1><span class="flag">🏔️</span> Josh &amp; Emilie on the JMT</h1>
+      <div class="sub">Following their John Muir Trail thru-hike, mapped live from SPOT satellite check-ins.</div>
+    </div>
+
+    <div class="stats" id="stats"><!-- filled by JS --></div>
+    <div class="latestbox" id="latest"><!-- filled by JS --></div>
+
+    <div class="list-h"><span>Check-ins</span><span id="count"></span></div>
+    <div id="list"><!-- filled by JS --></div>
+
+    <div class="side-actions">
+      <button id="flyLatest" class="side-btn">📍 Fly to latest position</button>
+    </div>
+
+    <div class="foot">
+      <span id="footNote">Orange pins &amp; line = real GPS check-ins. Blue = planned route (approximate). Times shown in Pacific (trail) time.</span>
+    </div>
+  </aside>
+
+  <div style="position:relative">
+    <button id="toggleSide" class="btn">☰ Log</button>
+    <div class="legend">
+      <div class="row"><span class="sw" style="border-top-color:var(--trail)"></span> Actual path</div>
+      <div class="row" id="legPlan"><span class="sw" style="border-top-color:var(--plan);border-top-style:dashed"></span> Planned route</div>
+      <div class="row"><span class="pin" style="background:var(--accent2)"></span> Latest check-in</div>
+    </div>
+    <div id="map"></div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   CHECK-IN DATA  —  add a new entry here each time a SPOT email arrives.
+   Copy the block, paste at the BOTTOM of the array, fill in the values.
+   time = Pacific (trail) local time.  The SPOT emails list EDT — subtract
+   3 hours to get Pacific.
+   ===================================================================== */
+/* `ele` = ground elevation in FEET at that coordinate (from a terrain lookup;
+   not in the SPOT email). Optional — if omitted, the elevation-change readout
+   just falls back to showing the message. */
+const checkins = [
+  {
+    trail: "Pre-hike · Bishop",
+    lat: 37.37212, lng: -118.39464, ele: 4154, offTrail: true,  // in town / before hiking — excluded from climb totals
+    time: "2026-07-19 16:50 PT",           // email said 7:50 PM EDT
+    msg: "Hello! We're checking out some great views! All is going well! – Josh & Emilie"
+  },
+  {
+    trail: "Trail Day 1 · Bishop Pass",
+    lat: 37.09845, lng: -118.55817, ele: 11181,
+    time: "2026-07-20 12:14 PT",           // email said 3:14 PM EDT
+    msg: "Hello! We're checking out some great views! All is going well! – Josh & Emilie"
+  },
+  {
+    trail: "Trail Day 1 · camp",
+    lat: 37.11292, lng: -118.60617, ele: 9281,
+    time: "2026-07-20 18:11 PT",           // email said 9:11 PM EDT
+    msg: "Hello from the trail! We made it to our campsite for the night. Check in tomorrow! – Josh & Emilie"
+  },
+  {
+    trail: "Trail Day 2 · midday",
+    lat: 37.11200, lng: -118.67087, ele: 11923,
+    time: "2026-07-21 12:02 PT",           // email said 3:02 PM EDT
+    msg: "Hello! We're checking out some great views! All is going well! – Josh & Emilie"
+  },
+  {
+    trail: "Trail Day 2 · camp",
+    lat: 37.17160, lng: -118.69962, ele: 10856,
+    time: "2026-07-21 16:45 PT",           // email said 7:45 PM EDT
+    msg: "Hello from the trail! We made it to our campsite for the night. Check in tomorrow! – Josh & Emilie"
+  },
+  /* ---- template for the next one (ele optional) ----
+  {
+    trail: "Trail Day 3",
+    lat: 00.00000, lng: -000.00000, ele: 0,
+    time: "2026-07-22 00:00 PT",
+    msg: "..."
+  },
+  */
+];
+
+/* =====================================================================
+   PLANNED ROUTE  —  approximate landmark coordinates from their itinerary.
+   These are reference points (not exact), drawn as the blue dashed line.
+   ===================================================================== */
+const planned = [
+  {name:"South Lake Trailhead (start)", lat:37.1683, lng:-118.5644, day:"Mon 7/20"},
+  {name:"JMT Junction / LeConte Canyon", lat:37.1003, lng:-118.6300, day:"Camp, Day 1"},
+  {name:"Evolution Lakes",               lat:37.1800, lng:-118.7170, day:"Camp, Day 2"},
+  {name:"Muir Trail Ranch (resupply)",   lat:37.2372, lng:-118.8836, day:"Wed 7/22"},
+  {name:"Marie Lake / Selden Pass",      lat:37.3300, lng:-118.8700, day:"Camp, Day 4"},
+  {name:"Mono Creek",                    lat:37.4100, lng:-118.9900, day:"Camp, Day 5"},
+  {name:"Duck Lake / Purple Lake",       lat:37.5100, lng:-118.9600, day:"Camp, Day 6"},
+  {name:"Red's Meadow (resupply)",       lat:37.6144, lng:-119.0782, day:"Sun 7/26"},
+  {name:"Shadow Lake",                   lat:37.7100, lng:-119.1700, day:"Camp, Day 8"},
+  {name:"Rush Creek / Donohue",          lat:37.8000, lng:-119.2600, day:"Camp, Day 9"},
+  {name:"Tuolumne Meadows",              lat:37.8760, lng:-119.3547, day:"Wed 7/29"},
+  {name:"Cathedral Lakes",               lat:37.8400, lng:-119.4130, day:"Optional, Day 11"},
+  {name:"Yosemite Valley / Curry Village",lat:37.7345, lng:-119.5730, day:"Thu 7/30"},
+];
+
+/* ---------- Map setup ---------- */
+const map = L.map('map', {zoomControl:true, attributionControl:true}).setView([37.4,-118.9], 10);
+
+const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  maxZoom:17, attribution:'© OpenTopoMap (CC-BY-SA), © OpenStreetMap'
+});
+const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom:18, attribution:'Imagery © Esri'
+});
+const street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19, attribution:'© OpenStreetMap'
+});
+topo.addTo(map);
+L.control.layers({ "Topographic":topo, "Satellite":sat, "Street":street }, null, {position:'topright'}).addTo(map);
+
+/* ---------- Planned route (white halo under a bold dashed line for contrast) ----------
+   Toggle: set SHOW_PLANNED = true to draw the planned route + campsite markers again. */
+const SHOW_PLANNED = false;
+if (SHOW_PLANNED) {
+  const plannedLatLng = planned.map(p=>[p.lat,p.lng]);
+  L.polyline(plannedLatLng, {color:'#ffffff', weight:7, opacity:.85, lineCap:'round', lineJoin:'round'}).addTo(map);
+  L.polyline(plannedLatLng, {color:'#123fd6', weight:3.5, opacity:1, dashArray:'10 8', lineCap:'butt'}).addTo(map);
+  planned.forEach(p=>{
+    L.marker([p.lat,p.lng], {icon:L.divIcon({className:'', html:'<div class="plan-pin"></div>', iconSize:[14,14], iconAnchor:[7,7]})})
+     .addTo(map)
+     .bindPopup(`<b>${p.name}</b><br><span style="color:#5a7">Planned · ${p.day}</span>`);
+  });
+}
+
+/* ---------- Actual check-ins ---------- */
+const ciMarkers = [];
+L.polyline(checkins.map(c=>[c.lat,c.lng]), {color:'#ff7a3c', weight:4, opacity:.95}).addTo(map);
+
+checkins.forEach((c,i)=>{
+  const isLatest = i === checkins.length-1;
+  const icon = L.divIcon({
+    className:'',
+    html:`<div class="ci-pin ${isLatest?'latest':''}"><span>${i+1}</span></div>`,
+    iconSize:[30,30], iconAnchor:[15,28], popupAnchor:[0,-26]
+  });
+  const m = L.marker([c.lat,c.lng], {icon}).addTo(map)
+    .bindPopup(`<b>Check-in ${i+1} · ${c.trail}</b><br>${fmt(c.time)}<br>
+      <div class="pop-msg">"${c.msg}"</div>
+      <div style="margin-top:6px;color:#567;font-size:11px">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}${c.ele!=null?` · ${c.ele.toLocaleString()} ft`:''}</div>`);
+  ciMarkers.push(m);
+});
+
+/* ---------- Fit view ---------- */
+const allPts = checkins.map(c=>[c.lat,c.lng]).concat(SHOW_PLANNED ? planned.map(p=>[p.lat,p.lng]) : []);
+map.fitBounds(L.latLngBounds(allPts).pad(0.12));
+
+/* ---------- Helpers ---------- */
+function haversine(a,b){
+  const R=3958.8, toR=x=>x*Math.PI/180;
+  const dLat=toR(b[0]-a[0]), dLng=toR(b[1]-a[1]);
+  const s=Math.sin(dLat/2)**2 + Math.cos(toR(a[0]))*Math.cos(toR(b[0]))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function fmt(t){
+  // "2026-07-21 16:45 PT" -> "Tue Jul 21, 4:45 PM PT"
+  const m = t.match(/(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/);
+  if(!m) return t;
+  const d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5]);
+  const opt = {weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'};
+  return d.toLocaleString('en-US', opt) + " PT";
+}
+
+/* ---------- Stats ---------- */
+let miles = 0;
+for(let i=1;i<checkins.length;i++) miles += haversine([checkins[i-1].lat,checkins[i-1].lng],[checkins[i].lat,checkins[i].lng]);
+
+// Cumulative elevation climbed / dropped between consecutive ON-TRAIL check-ins.
+// (Undercounts real trail gain — points are sparse — and skips the pre-hike drive.)
+let climbed = 0, dropped = 0;
+for(let i=1;i<checkins.length;i++){
+  const a = checkins[i-1], b = checkins[i];
+  if(a.offTrail || b.offTrail || a.ele==null || b.ele==null) continue;
+  const d = b.ele - a.ele;
+  if(d>0) climbed += d; else dropped += -d;
+}
+
+const startDate = new Date(2026,6,20);          // hiking started Mon 7/20
+const daysOut = Math.max(1, Math.round((Date.now()-startDate)/864e5)+1);
+const totalPlannedMiles = 145;
+
+document.getElementById('stats').innerHTML = `
+  <div class="stat"><div class="n">${checkins.length}</div><div class="l">Check-ins</div></div>
+  <div class="stat"><div class="n">${daysOut}<small> of 11</small></div><div class="l">Day on trail</div></div>
+  <div class="stat"><div class="n">${miles.toFixed(1)}<small> mi</small></div><div class="l">Straight-line progress</div></div>
+  <div class="stat"><div class="n">${totalPlannedMiles}<small> mi</small></div><div class="l">Total planned route</div></div>
+  <div class="stat"><div class="n" style="color:#ff9a63">${climbed.toLocaleString()}<small> ft</small></div><div class="l">Climbed so far ▲</div></div>
+  <div class="stat"><div class="n" style="color:#5fd08c">${dropped.toLocaleString()}<small> ft</small></div><div class="l">Dropped so far ▼</div></div>
+`;
+
+const last = checkins[checkins.length-1];
+const prev = checkins[checkins.length-2];
+let latestBody;
+if (last.ele != null && prev && prev.ele != null) {
+  const d = last.ele - prev.ele;
+  const up = d >= 0;
+  latestBody = `
+    <div class="elev">
+      <span class="arrow ${up?'up':'down'}">${up?'▲':'▼'}</span>
+      <span class="delta">${up?'+':'−'}${Math.abs(d).toLocaleString()} ft</span>
+      <span class="elabel">${up?'climbed':'descended'}<br>since last check-in</span>
+    </div>
+    <div class="ecur">Now at ${last.ele.toLocaleString()} ft</div>`;
+} else {
+  latestBody = `<div class="msg">"${last.msg.replace(/–.*$/,'').trim()}"</div>`;
+}
+document.getElementById('latest').innerHTML = `
+  <div class="k">📡 Latest check-in · ${last.trail}</div>
+  ${latestBody}
+  <div class="when">${fmt(last.time)} · ${last.lat.toFixed(4)}, ${last.lng.toFixed(4)}</div>
+`;
+
+/* ---------- Sidebar list (newest first) ---------- */
+document.getElementById('count').textContent = checkins.length;
+document.getElementById('list').innerHTML = checkins.slice().reverse().map(c=>{
+  const i = checkins.indexOf(c);
+  const isLatest = i === checkins.length-1;
+  return `<div class="card" data-i="${i}">
+    <div class="dot${isLatest?' latest':''}">${i+1}</div>
+    <div class="body">
+      <div class="t">${c.trail}</div>
+      <div class="m">${fmt(c.time)}</div>
+    </div>
+  </div>`;
+}).join('');
+
+document.querySelectorAll('.card').forEach(el=>{
+  el.addEventListener('click', ()=>{
+    const i = +el.dataset.i, c = checkins[i];
+    map.flyTo([c.lat,c.lng], 13, {duration:.9});
+    ciMarkers[i].openPopup();
+    document.getElementById('app').classList.remove('open');
+  });
+});
+
+/* ---------- Buttons ---------- */
+const app = document.getElementById('app');
+document.getElementById('flyLatest').addEventListener('click', ()=>{
+  app.classList.remove('open');            // close the mobile menu
+  map.flyTo([last.lat,last.lng], 13, {duration:.9});
+  ciMarkers[ciMarkers.length-1].openPopup();
+});
+document.getElementById('toggleSide').addEventListener('click', ()=> app.classList.toggle('open'));
+document.getElementById('closeSide').addEventListener('click', ()=> app.classList.remove('open'));
+
+/* Hide the planned-route legend row + footer note when the plan is hidden */
+if (!SHOW_PLANNED) {
+  document.getElementById('legPlan').style.display = 'none';
+  document.getElementById('footNote').textContent = 'Orange pins & line = real GPS check-ins. Times shown in Pacific (trail) time.';
+}
+</script>
+</body>
+</html>
