@@ -198,6 +198,12 @@ const checkins = [
     time: "2026-07-22 13:14 PT",           // email said 4:14 PM EDT · near Muir Trail Ranch
     msg: "Hello! We're checking out some great views! All is going well! – Josh & Emilie"
   },
+  {
+    trail: "Trail Day 3 · camp",
+    lat: 37.23508, lng: -118.87994, ele: 7730,
+    time: "2026-07-22 18:22 PT",           // email said 9:22 PM EDT · Muir Trail Ranch
+    msg: "Hello from the trail! We made it to our campsite for the night. Check in tomorrow! – Josh & Emilie"
+  },
   /* ---- template for the next one (ele optional) ----
   {
     trail: "Trail Day 3",
@@ -383,5 +389,10 @@ if (!SHOW_PLANNED) {
   document.getElementById('footNote').textContent = 'Orange pins & line = real GPS check-ins. Times shown in Pacific (trail) time.';
 }
 </script>
+
+<!-- Vercel Web Analytics — collects page views once enabled in the Vercel dashboard.
+     Harmless (404s) on localhost or before analytics is turned on. -->
+<script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments);};</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
