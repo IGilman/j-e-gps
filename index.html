@@ -204,6 +204,12 @@ const checkins = [
     time: "2026-07-22 18:22 PT",           // email said 9:22 PM EDT · Muir Trail Ranch
     msg: "Hello from the trail! We made it to our campsite for the night. Check in tomorrow! – Josh & Emilie"
   },
+  {
+    trail: "Trail Day 4 · midday",
+    lat: 37.29760, lng: -118.87196, ele: 10607,
+    time: "2026-07-23 11:32 PT",           // email said 2:32 PM EDT · climbing toward Selden Pass
+    msg: "Hello! We're checking out some great views! All is going well! – Josh & Emilie"
+  },
   /* ---- template for the next one (ele optional) ----
   {
     trail: "Trail Day 3",
@@ -251,7 +257,7 @@ L.control.layers({ "Topographic":topo, "Satellite":sat, "Street":street }, null,
 
 /* ---------- Planned route (white halo under a bold dashed line for contrast) ----------
    Toggle: set SHOW_PLANNED = true to draw the planned route + campsite markers again. */
-const SHOW_PLANNED = false;
+const SHOW_PLANNED = true;
 if (SHOW_PLANNED) {
   const plannedLatLng = planned.map(p=>[p.lat,p.lng]);
   L.polyline(plannedLatLng, {color:'#ffffff', weight:7, opacity:.85, lineCap:'round', lineJoin:'round'}).addTo(map);
