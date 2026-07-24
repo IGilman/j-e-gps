@@ -90,6 +90,20 @@
     @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(57,192,111,.55)}50%{box-shadow:0 0 0 12px rgba(57,192,111,0)}}
     .plan-pin{background:var(--plan);width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.5)}
 
+    /* ---------- 🎂 Birthday mode ---------- */
+    .bd-pin{width:34px;height:34px;display:grid;place-items:center;font-size:24px;
+      filter:drop-shadow(0 3px 5px rgba(0,0,0,.55));animation:bdbob 2.3s ease-in-out infinite}
+    @keyframes bdbob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-6px) rotate(4deg)}}
+    .bdbanner{margin:12px 18px 2px;padding:12px 14px;border-radius:13px;text-align:center;
+      background:linear-gradient(135deg,#ff5fa2,#ff9a5b,#ffe66d);color:#3a1020;
+      font-weight:800;font-size:14.5px;letter-spacing:.2px;box-shadow:0 4px 16px rgba(255,95,162,.32)}
+    .bdbanner .sub{display:block;font-weight:600;font-size:11.5px;margin-top:4px;color:#5c2233}
+    .card .dot.bd{background:linear-gradient(135deg,#ff5fa2,#ffb347);font-size:15px;color:#3a1020}
+    .confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:450}
+    .confetti i{position:absolute;top:-16px;width:8px;height:14px;border-radius:1px;opacity:.85;
+      animation:bdfall linear infinite}
+    @keyframes bdfall{to{transform:translateY(102vh) rotate(760deg)}}
+
     .leaflet-popup-content{font-size:13px;line-height:1.5}
     .leaflet-popup-content b{color:#0a2540}
     .pop-msg{font-style:italic;color:#274156;margin-top:4px}
@@ -128,6 +142,8 @@
       <div class="sub">Following their John Muir Trail thru-hike, mapped live from SPOT satellite check-ins.</div>
     </div>
 
+    <div id="bdbanner"><!-- filled by JS on Emilie's birthday --></div>
+
     <div class="stats" id="stats"><!-- filled by JS --></div>
     <div class="latestbox" id="latest"><!-- filled by JS --></div>
 
@@ -151,6 +167,7 @@
       <div class="row"><span class="pin" style="background:var(--accent2)"></span> Latest check-in</div>
     </div>
     <div id="map"></div>
+    <div class="confetti" id="confetti"><!-- filled by JS on Emilie's birthday --></div>
   </div>
 </div>
 
@@ -278,19 +295,36 @@ if (SHOW_PLANNED) {
   });
 }
 
+/* ===================== 🎂 Birthday mode =====================
+   Check-ins dated BIRTHDAY get festive icons instead of numbered pins,
+   plus a banner and confetti. To preview the effect on any day, either set
+   BIRTHDAY_PREVIEW = true or just add ?bd=1 to the URL. */
+const BIRTHDAY = "2026-07-24";        // Emilie's birthday
+const BIRTHDAY_PREVIEW = false;       // true = always festive; false = only on the real day
+const BD_ICONS = ["🎂","🎈","🎉","🎁","✨","🥳"];
+const isBdCheckin = c => (c.time || "").startsWith(BIRTHDAY);
+const forceBd = BIRTHDAY_PREVIEW || /[?&]bd=1/.test(location.search);
+const bdFor = (c,i) => (forceBd || isBdCheckin(c)) ? BD_ICONS[i % BD_ICONS.length] : null;
+const todayStr = new Date().toLocaleDateString('en-CA');   // YYYY-MM-DD, local time
+const festive = forceBd || todayStr === BIRTHDAY || checkins.some(isBdCheckin);
+
 /* ---------- Actual check-ins ---------- */
 const ciMarkers = [];
 L.polyline(checkins.map(c=>[c.lat,c.lng]), {color:'#ff7a3c', weight:4, opacity:.95}).addTo(map);
 
 checkins.forEach((c,i)=>{
   const isLatest = i === checkins.length-1;
+  const bd = bdFor(c,i);
   const icon = L.divIcon({
     className:'',
-    html:`<div class="ci-pin ${isLatest?'latest':''}"><span>${i+1}</span></div>`,
-    iconSize:[30,30], iconAnchor:[15,28], popupAnchor:[0,-26]
+    html: bd ? `<div class="bd-pin">${bd}</div>`
+             : `<div class="ci-pin ${isLatest?'latest':''}"><span>${i+1}</span></div>`,
+    iconSize: bd ? [34,34] : [30,30],
+    iconAnchor: bd ? [17,30] : [15,28],
+    popupAnchor:[0,-26]
   });
   const m = L.marker([c.lat,c.lng], {icon}).addTo(map)
-    .bindPopup(`<b>Check-in ${i+1} · ${c.trail}</b><br>${fmt(c.time)}<br>
+    .bindPopup(`<b>${bd?bd+' ':''}Check-in ${i+1} · ${c.trail}</b><br>${fmt(c.time)}<br>
       <div class="pop-msg">"${c.msg}"</div>
       <div style="margin-top:6px;color:#567;font-size:11px">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}${c.ele!=null?` · ${c.ele.toLocaleString()} ft`:''}</div>`);
   ciMarkers.push(m);
@@ -370,8 +404,9 @@ document.getElementById('count').textContent = checkins.length;
 document.getElementById('list').innerHTML = checkins.slice().reverse().map(c=>{
   const i = checkins.indexOf(c);
   const isLatest = i === checkins.length-1;
+  const bd = bdFor(c,i);
   return `<div class="card" data-i="${i}">
-    <div class="dot${isLatest?' latest':''}">${i+1}</div>
+    <div class="dot${isLatest?' latest':''}${bd?' bd':''}">${bd || (i+1)}</div>
     <div class="body">
       <div class="t">${c.trail}</div>
       <div class="m">${fmt(c.time)}</div>
@@ -397,6 +432,21 @@ document.getElementById('flyLatest').addEventListener('click', ()=>{
 });
 document.getElementById('toggleSide').addEventListener('click', ()=> app.classList.toggle('open'));
 document.getElementById('closeSide').addEventListener('click', ()=> app.classList.remove('open'));
+
+/* ---------- 🎂 Birthday banner + confetti ---------- */
+if (festive) {
+  document.getElementById('bdbanner').innerHTML = `
+    <div class="bdbanner">🎂 Happy Birthday, Emilie! 🎉
+      <span class="sub">Celebrating somewhere in the High Sierra ⛰️</span>
+    </div>`;
+  const colors = ['#ff5fa2','#ffb347','#ffe66d','#5fd08c','#5aa9ff','#c084fc'];
+  document.getElementById('confetti').innerHTML =
+    Array.from({length:34}, ()=>{
+      const l = Math.random()*100, d = 4.5+Math.random()*4.5, delay = -Math.random()*9;
+      const col = colors[Math.floor(Math.random()*colors.length)];
+      return `<i style="left:${l}%;background:${col};animation-duration:${d.toFixed(1)}s;animation-delay:${delay.toFixed(1)}s"></i>`;
+    }).join('');
+}
 
 /* Hide the planned-route legend row + footer note when the plan is hidden */
 if (!SHOW_PLANNED) {
