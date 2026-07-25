@@ -312,7 +312,7 @@ if (SHOW_PLANNED) {
    plus a banner and confetti. To preview the effect on any day, either set
    BIRTHDAY_PREVIEW = true or just add ?bd=1 to the URL. */
 const BIRTHDAY = "2026-07-24";        // Emilie's birthday
-const BIRTHDAY_PREVIEW = true;        // FORCED ON for Emilie's birthday (7/24) — set back to false after the day
+const BIRTHDAY_PREVIEW = false;       // off after her birthday; her 7/24 check-ins keep the festive pins as a memento
 const BD_ICONS = ["🎂","🎈","🎉","🎁","✨","🥳"];
 const isBdCheckin = c => (c.time || "").startsWith(BIRTHDAY);
 const forceBd = BIRTHDAY_PREVIEW || /[?&]bd=1/.test(location.search);
