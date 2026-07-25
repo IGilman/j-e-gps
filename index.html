@@ -318,7 +318,7 @@ const isBdCheckin = c => (c.time || "").startsWith(BIRTHDAY);
 const forceBd = BIRTHDAY_PREVIEW || /[?&]bd=1/.test(location.search);
 const bdFor = (c,i) => (forceBd || isBdCheckin(c)) ? BD_ICONS[i % BD_ICONS.length] : null;
 const todayStr = new Date().toLocaleDateString('en-CA');   // YYYY-MM-DD, local time
-const festive = forceBd || todayStr === BIRTHDAY || checkins.some(isBdCheckin);
+const festive = forceBd || todayStr === BIRTHDAY;   // banner + confetti only ON the day (pins persist via bdFor)
 
 /* ---------- Actual check-ins ---------- */
 const ciMarkers = [];
