@@ -244,7 +244,7 @@ const checkins = [
   },
   {
     trail: "Trail Day 5 · camp",
-    lat: 37.51423, lng: -118.93666, ele: 10351,
+    lat: 37.51423, lng: -118.93666, ele: 10351, bdIcon: "🥳",  // ✨ washed out against the map
     time: "2026-07-24 18:31 PT",           // email said 9:31 PM EDT · near Mono Creek
     msg: "Hello from the trail! We made it to our campsite for the night. Check in tomorrow! – Josh & Emilie"
   },
@@ -316,7 +316,7 @@ const BIRTHDAY_PREVIEW = false;       // off after her birthday; her 7/24 check-
 const BD_ICONS = ["🎂","🎈","🎉","🎁","✨","🥳"];
 const isBdCheckin = c => (c.time || "").startsWith(BIRTHDAY);
 const forceBd = BIRTHDAY_PREVIEW || /[?&]bd=1/.test(location.search);
-const bdFor = (c,i) => (forceBd || isBdCheckin(c)) ? BD_ICONS[i % BD_ICONS.length] : null;
+const bdFor = (c,i) => (forceBd || isBdCheckin(c)) ? (c.bdIcon || BD_ICONS[i % BD_ICONS.length]) : null;
 const todayStr = new Date().toLocaleDateString('en-CA');   // YYYY-MM-DD, local time
 const festive = forceBd || todayStr === BIRTHDAY;   // banner + confetti only ON the day (pins persist via bdFor)
 
