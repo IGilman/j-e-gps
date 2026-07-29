@@ -104,6 +104,11 @@
       animation:bdfall linear infinite}
     @keyframes bdfall{to{transform:translateY(102vh) rotate(760deg)}}
 
+    /* ---------- 🏁 Finish (JMT terminus at Happy Isles) ---------- */
+    .finish-pin{width:36px;height:36px;display:grid;place-items:center;font-size:27px;
+      filter:drop-shadow(0 3px 5px rgba(0,0,0,.6));animation:bdbob 2.3s ease-in-out infinite}
+    .card .dot.finish{background:linear-gradient(135deg,#f2f4f7,#aeb7c2);font-size:15px;color:#1a2230}
+
     .leaflet-popup-content{font-size:13px;line-height:1.5}
     .leaflet-popup-content b{color:#0a2540}
     .pop-msg{font-style:italic;color:#274156;margin-top:4px}
@@ -380,23 +385,33 @@ const bdFor = (c,i) => (forceBd || isBdCheckin(c)) ? (c.bdIcon || BD_ICONS[i % B
 const todayStr = new Date().toLocaleDateString('en-CA');   // YYYY-MM-DD, local time
 const festive = forceBd || todayStr === BIRTHDAY;   // banner + confetti only ON the day (pins persist via bdFor)
 
+/* 🏁 Finish line: the LAST check-in becomes a checkered flag once they reach the
+   John Muir Trail's northern terminus at Happy Isles in Yosemite Valley — works
+   automatically (incl. via the cloud sync) when it lands within ~0.8 mi, or set
+   finish:true on a check-in to force it. */
+const HAPPY_ISLES = [37.7317, -119.5585];
+const isFinish = (c,i) => i === checkins.length-1 &&
+  (c.finish === true || haversine([c.lat,c.lng], HAPPY_ISLES) < 0.8);
+
 /* ---------- Actual check-ins ---------- */
 const ciMarkers = [];
 L.polyline(checkins.map(c=>[c.lat,c.lng]), {color:'#ff7a3c', weight:4, opacity:.95}).addTo(map);
 
 checkins.forEach((c,i)=>{
   const isLatest = i === checkins.length-1;
-  const bd = bdFor(c,i);
+  const fin = isFinish(c,i);
+  const bd = fin ? null : bdFor(c,i);
   const icon = L.divIcon({
     className:'',
-    html: bd ? `<div class="bd-pin">${bd}</div>`
+    html: fin ? `<div class="finish-pin">🏁</div>`
+             : bd ? `<div class="bd-pin">${bd}</div>`
              : `<div class="ci-pin ${isLatest?'latest':''}"><span>${i+1}</span></div>`,
-    iconSize: bd ? [34,34] : [30,30],
-    iconAnchor: bd ? [17,30] : [15,28],
+    iconSize: (fin||bd) ? [36,36] : [30,30],
+    iconAnchor: (fin||bd) ? [18,32] : [15,28],
     popupAnchor:[0,-26]
   });
   const m = L.marker([c.lat,c.lng], {icon}).addTo(map)
-    .bindPopup(`<b>${bd?bd+' ':''}Check-in ${i+1} · ${c.trail}</b><br>${fmt(c.time)}<br>
+    .bindPopup(`<b>${fin?'🏁 ':bd?bd+' ':''}Check-in ${i+1} · ${c.trail}</b><br>${fmt(c.time)}<br>
       <div class="pop-msg">"${c.msg}"</div>
       <div style="margin-top:6px;color:#567;font-size:11px">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}${c.ele!=null?` · ${c.ele.toLocaleString()} ft`:''}</div>`);
   ciMarkers.push(m);
@@ -476,9 +491,10 @@ document.getElementById('count').textContent = checkins.length;
 document.getElementById('list').innerHTML = checkins.slice().reverse().map(c=>{
   const i = checkins.indexOf(c);
   const isLatest = i === checkins.length-1;
-  const bd = bdFor(c,i);
+  const fin = isFinish(c,i);
+  const bd = fin ? null : bdFor(c,i);
   return `<div class="card" data-i="${i}">
-    <div class="dot${isLatest?' latest':''}${bd?' bd':''}">${bd || (i+1)}</div>
+    <div class="dot${isLatest?' latest':''}${fin?' finish':bd?' bd':''}">${fin?'🏁':bd || (i+1)}</div>
     <div class="body">
       <div class="t">${c.trail}</div>
       <div class="m">${fmt(c.time)}</div>
