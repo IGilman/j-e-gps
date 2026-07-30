@@ -399,8 +399,8 @@ L.polyline(checkins.map(c=>[c.lat,c.lng]), {color:'#ff7a3c', weight:4, opacity:.
 
 checkins.forEach((c,i)=>{
   const isLatest = i === checkins.length-1;
-  const fin = isFinish(c,i);
-  const bd = fin ? null : bdFor(c,i);
+  const bd = bdFor(c,i);
+  const fin = isFinish(c,i) && !bd;   // birthday emoji (incl. forced ?bd=1) wins over the flag
   const icon = L.divIcon({
     className:'',
     html: fin ? `<div class="finish-pin">🏁</div>`
@@ -491,8 +491,8 @@ document.getElementById('count').textContent = checkins.length;
 document.getElementById('list').innerHTML = checkins.slice().reverse().map(c=>{
   const i = checkins.indexOf(c);
   const isLatest = i === checkins.length-1;
-  const fin = isFinish(c,i);
-  const bd = fin ? null : bdFor(c,i);
+  const bd = bdFor(c,i);
+  const fin = isFinish(c,i) && !bd;   // birthday emoji (incl. forced ?bd=1) wins over the flag
   return `<div class="card" data-i="${i}">
     <div class="dot${isLatest?' latest':''}${fin?' finish':bd?' bd':''}">${fin?'🏁':bd || (i+1)}</div>
     <div class="body">
